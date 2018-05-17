@@ -1,0 +1,15 @@
+{
+    "name": "undying-helper",
+    "version": "0.0.1",
+    "description": "Undying helper bot",
+    "main": "bot.js",
+    "author": "emillime",
+    "dependencies": {
+        "discord.js": "github:discordjs/discord.js",
+        "lodash": "^4.17.10",
+        "moment": "^2.22.1"
+    },
+    "scripts": {
+        "start": "node bot.js"
+    }
+}
