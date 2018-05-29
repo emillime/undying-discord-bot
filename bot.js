@@ -7,6 +7,67 @@ const client = new Discord.Client();
 var config = require("./config.json");
 var war = require("./war.json");
 
+const commands = {
+  prefix: message => {
+    if (message.author.id !== config.ownerID) return;
+
+    // Gets the prefix from the command (eg. "!prefix +" it will take the "+" from it)
+    let newPrefix = message.content.split(" ").slice(1, 2)[0];
+    // change the configuration in memory
+    config.prefix = newPrefix;
+
+    // Now we have to save the file.
+    fs.writeFile("./config.json", JSON.stringify(config), err => console.error);
+  },
+
+  start: (message, args) => {
+    if (message.author.id !== config.ownerID) return;
+
+    war.start = moment()
+      .startOf("day")
+      .add(16, "hours");
+    message.channel.send(
+      "New war started " +
+        moment(war.start).fromNow() +
+        "\nSign up for a keep line in the sheet. Good luck!"
+    );
+
+    fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
+  },
+
+  next: (message, args) => {
+    var d = nextPoint();
+    message.channel.send("Next point in: " + d.humanizePrecisely());
+  },
+
+  current: (message, args) => {
+    var p = pointsSinceStart();
+    message.channel.send("Current points: " + p);
+  },
+
+  points: (message, args) => {
+    if (typeof args[0] == "undefined" || args[0] > 200 || args[0] < 1) {
+      message.channel.send("Please enter a value between 1 and 200");
+    } else {
+      var t = timeToGetXPoints(args[0]);
+      message.channel.send(
+        "You will get " + args[0] + " points in: " + t.humanizePrecisely()
+      );
+    }
+  },
+
+  help: (message, args) => {
+    message.channel.send(
+      "These are the commands I can do:\n\
+        `!help` Shows a list with all the commands.\n\
+        `!next point` The time until the next war point.\n\
+        `!current` The current points if you haven't donated or attacked yet.\n\
+        `!points <number>` Tells you how long time it will take to generate `<number>` points.\n\
+        "
+    );
+  }
+};
+
 client.on("ready", () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
@@ -20,70 +81,7 @@ client.on("message", message => {
     .split(/ +/g);
   const command = args.shift().toLowerCase();
 
-  switch (command) {
-    case "prefix":
-      if (message.author.id !== config.ownerID) return;
-
-      // Gets the prefix from the command (eg. "!prefix +" it will take the "+" from it)
-      let newPrefix = message.content.split(" ").slice(1, 2)[0];
-      // change the configuration in memory
-      config.prefix = newPrefix;
-
-      // Now we have to save the file.
-      fs.writeFile(
-        "./config.json",
-        JSON.stringify(config),
-        err => console.error
-      );
-      break;
-
-    case "start":
-      if (message.author.id !== config.ownerID) return;
-
-      war.start = moment()
-        .startOf("day")
-        .add(16, "hours");
-      message.channel.send(
-        "New war started " +
-          moment(war.start).fromNow() +
-          "\nSign up for a keep line in the sheet. Good luck!"
-      );
-
-      fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
-      break;
-
-    case "next":
-      var d = nextPoint();
-      message.channel.send("Next point in: " + d.humanizePrecisely());
-      break;
-
-    case "current":
-      var p = pointsSinceStart();
-      message.channel.send("Current points: " + p);
-      break;
-
-    case "points":
-      if (typeof args[0] == "undefined" || args[0] > 200 || args[0] < 1) {
-        message.channel.send("Please enter a value between 1 and 200");
-      } else {
-        var t = timeToGetXPoints(args[0]);
-        message.channel.send(
-          "You will get " + args[0] + " points in: " + t.humanizePrecisely()
-        );
-      }
-      break;
-
-    case "help":
-      message.channel.send(
-        "These are the commands I can do:\n\
-        `!help` Shows a list with all the commands.\n\
-        `!next point` The time until the next war point.\n\
-        `!current` The current points if you haven't donated or attacked yet.\n\
-        `!points <number>` Tells you how long time it will take to generate `<number>` points.\n\
-        "
-      );
-      break;
-  }
+  commands[command](message, args);
 });
 
 function durationSinceStart() {
@@ -209,4 +207,4 @@ moment.duration.fn.humanizePrecisely = function(options = {}) {
   );
 };
 
-client.login(process.env.TOKEN);
+client.login(config.token);
