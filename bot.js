@@ -26,10 +26,12 @@ const commands = {
     war.start = moment()
       .startOf("day")
       .add(16, "hours");
+    war.keep.requests = {};
+
     message.channel.send(
       "New war started " +
         moment(war.start).fromNow() +
-        "\nSign up for a keep line in the sheet. Good luck!"
+        "\nSign up for a keep line by using !request <line number>. Good luck!"
     );
 
     fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
@@ -56,13 +58,51 @@ const commands = {
     }
   },
 
+  request: (message, args) => {
+    var line = Number(args[0]);
+    if (line < 1 || line > 12 || Number.isNaN(line)) {
+      message.channel.send("Please enter a number between 1 and 12.");
+      return;
+    }
+
+    if (line in war.keep.requests) {
+      message.channel.send(
+        "Line " +
+          line +
+          " in the keep is already requested by " +
+          war.keep.requests[line] +
+          "."
+      );
+    } else {
+      var nick = message.guild.members.get(message.author.id).nickname;
+      nick = nick == null ? message.author.username : nick;
+
+      war.keep.requests[line] = nick;
+      message.channel.send(
+        "You are now signed up for line " + line + " in the keep."
+      );
+    }
+
+    fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
+  },
+
+  list: (message, args) => {
+    var response = "These are the lines requested for the keep:\n";
+    for (var line in war.keep.requests) {
+      response += "Line " + line + ": " + war.keep.requests[line] + "\n";
+    }
+    message.channel.send(response);
+  },
+
   help: (message, args) => {
     message.channel.send(
       "These are the commands I can do:\n\
         `!help` Shows a list with all the commands.\n\
         `!next point` The time until the next war point.\n\
         `!current` The current points if you haven't donated or attacked yet.\n\
-        `!points <number>` Tells you how long time it will take to generate `<number>` points.\n\
+        `!points <number>` Tells you how long it will take to generate `<number>` points.\n\
+        `!request <number>` Signs you up for that keep line.\n\
+        `!list` Shows the keep list.\n\
         "
     );
   }
@@ -81,7 +121,9 @@ client.on("message", message => {
     .split(/ +/g);
   const command = args.shift().toLowerCase();
 
-  commands[command](message, args);
+  if (commands[command]) {
+    commands[command](message, args);
+  }
 });
 
 function durationSinceStart() {
