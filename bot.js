@@ -74,13 +74,30 @@ const commands = {
           "."
       );
     } else {
-      var nick = message.guild.members.get(message.author.id).nickname;
-      nick = nick == null ? message.author.username : nick;
+      var nick = getNick(message);
 
       war.keep.requests[line] = nick;
       message.channel.send(
         "You are now signed up for line " + line + " in the keep."
       );
+    }
+
+    fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
+  },
+
+  clear: (message, args) => {
+    var line = Number(args[0]);
+    if (line < 1 || line > 12 || Number.isNaN(line)) {
+      message.channel.send("Please enter a number between 1 and 12.");
+      return;
+    }
+
+    // Note: Checking nickname can be bypassed if people change the nickname.
+    if (war.keep.requests[line] === getNick(message)) {
+      delete war.keep.requests[line];
+      message.channel.send("Line " + line + " is now up for grabs!");
+    } else {
+      message.channel.send("You can only remove your name from the list.");
     }
 
     fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
@@ -102,6 +119,7 @@ const commands = {
         `!current` The current points if you haven't donated or attacked yet.\n\
         `!points <number>` Tells you how long it will take to generate `<number>` points.\n\
         `!request <number>` Signs you up for that keep line.\n\
+        `!clear <number>` Removes you from that line in the keep list.\n\
         `!list` Shows the keep list.\n\
         "
     );
@@ -125,6 +143,11 @@ client.on("message", message => {
     commands[command](message, args);
   }
 });
+
+function getNick(message) {
+  var nick = message.guild.members.get(message.author.id).nickname;
+  return nick == null ? message.author.username : nick;
+}
 
 function durationSinceStart() {
   var now = moment();
