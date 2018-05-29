@@ -16,7 +16,7 @@ client.on('message', message => {
 
     const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
     const command = args.shift().toLowerCase();
-
+    
     switch (command) {
       case "prefix":
         if (message.author.id !== config.ownerID) return;
@@ -33,9 +33,9 @@ client.on('message', message => {
       case "start":
         if (message.author.id !== config.ownerID) return;
 
-        war.start = moment().startOf('day').add(18, 'hours');
+        war.start = moment().startOf('day').add(16, 'hours');
         message.channel.send("New war started " + moment(war.start).fromNow() + "\nSign up for a keep line in the sheet. Good luck!");
-
+        
         fs.writeFile("./war.json", JSON.stringify(war), (err) => console.error);
         break;
 
@@ -50,8 +50,12 @@ client.on('message', message => {
         break;
 
       case "points":
-        var t = timeToGetXPoints(args[0]);
-        message.channel.send("You will get " + args[0] + " points in: " + t.humanizePrecisely());
+        if (typeof args[0] == "undefined" || args[0] > 200 || args[0] < 1) {
+          message.channel.send("Please enter a value between 1 and 200");
+        } else {
+          var t = timeToGetXPoints(args[0]);
+          message.channel.send("You will get " + args[0] + " points in: " + t.humanizePrecisely());
+        }
         break;
       
       case "help":
@@ -86,7 +90,7 @@ function pointsSinceStart() {
       d.add(war.regen, 'hours');
     } else if (d.asHours() < 48) {
       d.add(war.regen/3, 'hours');
-    } else if (d.asHours() < 72) {
+    } else {
       d.add(war.regen/5, 'hours');
     }
   }
@@ -105,7 +109,7 @@ function nextPoint() {
       d.add(war.regen, 'hours');
     } else if (d.asHours() < 48) {
       d.add(war.regen/3, 'hours');
-    } else if (d.asHours() < 72) {
+    } else {
       d.add(war.regen/5, 'hours');
     }
   }
@@ -127,7 +131,7 @@ function timeToGetXPoints(points) {
     } else if (totalDuration.asHours() < 48) {
       totalDuration.add(war.regen/3, 'hours');
       d.add(war.regen/3, 'hours');
-    } else if (totalDuration.asHours() < 72) {
+    } else {
       totalDuration.add(war.regen/5, 'hours');
       d.add(war.regen/5, 'hours');
     }
@@ -179,4 +183,4 @@ moment.duration.fn.humanizePrecisely = function(options = {}) {
 		.join(' ');
 }
 
-client.login(config.token);
+client.login(process.env.TOKEN);
