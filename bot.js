@@ -7,6 +7,20 @@ const client = new Discord.Client();
 var config = require("./config.json");
 var war = require("./war.json");
 
+const towers = [
+  "tt1",
+  "tt2",
+  "tt3",
+  "bt1",
+  "bt2",
+  "bt3",
+  "mt1",
+  "tm",
+  "mm",
+  "bm",
+  "keep"
+];
+
 const commands = {
   prefix: message => {
     if (message.author.id !== config.ownerID) return;
@@ -26,12 +40,12 @@ const commands = {
     war.start = moment()
       .startOf("day")
       .add(16, "hours");
-    war.keep.requests = {};
+    towers.forEach(t => (war.requests[t] = {}));
 
     message.channel.send(
       "New war started " +
         moment(war.start).fromNow() +
-        "\nSign up for a keep line by using !request <line number>. Good luck!"
+        "\nSign up for a keep line by using `!request keep <line number>`. Good luck!"
     );
 
     fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
@@ -48,7 +62,7 @@ const commands = {
   },
 
   points: (message, args) => {
-    if (typeof args[0] == "undefined" || args[0] > 200 || args[0] < 1) {
+    if (args[0] === undefined || args[0] > 200 || args[0] < 1) {
       message.channel.send("Please enter a value between 1 and 200");
     } else {
       var t = timeToGetXPoints(args[0]);
@@ -60,25 +74,34 @@ const commands = {
 
   request: (message, args) => {
     var line = Number(args[0]);
-    if (line < 1 || line > 12 || Number.isNaN(line)) {
-      message.channel.send("Please enter a number between 1 and 12.");
+    var tower = args[1];
+
+    if (
+      line < 1 ||
+      line > 15 ||
+      Number.isNaN(line) ||
+      !towers.includes(tower)
+    ) {
+      message.channel.send(
+        "`!request <line number> <tower>` Please enter a number between 1 and 15 and a tower from the list. (tt1, tt2, tt3, bt1, bt2, bt3, mt1, tm, mm, bm, keep)"
+      );
       return;
     }
 
-    if (line in war.keep.requests) {
+    if (line in war.requests[tower]) {
       message.channel.send(
         "Line " +
           line +
           " in the keep is already requested by " +
-          war.keep.requests[line] +
+          war.requests[tower][line] +
           "."
       );
     } else {
       var nick = getNick(message);
 
-      war.keep.requests[line] = nick;
+      war.requests[tower][line] = nick;
       message.channel.send(
-        "You are now signed up for line " + line + " in the keep."
+        "You are now signed up for line " + line + " in " + tower + "."
       );
     }
 
@@ -87,15 +110,25 @@ const commands = {
 
   clear: (message, args) => {
     var line = Number(args[0]);
-    if (line < 1 || line > 12 || Number.isNaN(line)) {
-      message.channel.send("Please enter a number between 1 and 12.");
+    var tower = args[1];
+    if (
+      line < 1 ||
+      line > 15 ||
+      Number.isNaN(line) ||
+      !towers.includes(tower)
+    ) {
+      message.channel.send(
+        "`!clear <line number> <tower>` Please enter a number between 1 and 15 and a tower from the list. (tt1, tt2, tt3, bt1, bt2, bt3, mt1, tm, mm, bm, keep)"
+      );
       return;
     }
 
     // Note: Checking nickname can be bypassed if people change the nickname.
-    if (war.keep.requests[line] === getNick(message)) {
-      delete war.keep.requests[line];
-      message.channel.send("Line " + line + " is now up for grabs!");
+    if (war.requests[tower][line] === getNick(message)) {
+      delete war.requests[tower][line];
+      message.channel.send(
+        "Line " + line + " in " + tower + " is now up for grabs!"
+      );
     } else {
       message.channel.send("You can only remove your name from the list.");
     }
@@ -104,11 +137,26 @@ const commands = {
   },
 
   list: (message, args) => {
-    var response = "These are the lines requested for the keep:\n";
-    for (var line in war.keep.requests) {
-      response += "Line " + line + ": " + war.keep.requests[line] + "\n";
+    var tower = args[0];
+
+    if (towers.includes(tower)) {
+      var response = "These are the lines requested for " + tower + ":\n";
+      for (var line in war.requests[tower]) {
+        response += "Line " + line + ": " + war.requests[tower][line] + "\n";
+      }
+      message.channel.send(response);
+    } else {
+      var response = "These are the lines requested for all towers:\n";
+      towers.forEach(function(t) {
+        if (!_.isEmpty(war.requests[t])) {
+          response += "**" + t + ":**\n";
+          for (var line in war.requests[t]) {
+            response += "Line " + line + ": " + war.requests[t][line] + "\n";
+          }
+        }
+      });
+      message.channel.send(response);
     }
-    message.channel.send(response);
   },
 
   help: (message, args) => {
@@ -118,9 +166,10 @@ const commands = {
         `!next point` The time until the next war point.\n\
         `!current` The current points if you haven't donated or attacked yet.\n\
         `!points <number>` Tells you how long it will take to generate `<number>` points.\n\
-        `!request <number>` Signs you up for that keep line.\n\
-        `!clear <number>` Removes you from that line in the keep list.\n\
-        `!list` Shows the keep list.\n\
+        `!request <number> <tower>` Signs you up for the line in that tower.\n\
+        `!clear <number> <tower>` Removes you from that line in the list.\n\
+        `!list <tower>` Shows the list for a specific tower, if you don't add a tower all towers will be shown.\n\
+        These are the tower names: (tt1, tt2, tt3, bt1, bt2, bt3, mt1, tm, mm, bm, keep)\n\
         "
     );
   }
