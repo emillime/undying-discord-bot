@@ -209,10 +209,10 @@ const commands = {
         if (!_.isEmpty(war.requests[t])) {
           response += "**" + t + ":**\n";
           for (var line in war.requests[t]) {
-            if (war.requests[tower][line].complete) {
-              response += "~~Line " + line + ": " + war.requests[tower][line].nick + "~~" + "\n";
+            if (war.requests[t][line].complete) {
+              response += "~~Line " + line + ": " + war.requests[t][line].nick + "~~" + "\n";
             } else {
-              response += "Line " + line + ": " + war.requests[tower][line].nick + "\n";
+              response += "Line " + line + ": " + war.requests[t][line].nick + "\n";
             }
           }
         }
