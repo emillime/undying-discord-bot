@@ -23,7 +23,7 @@ const towers = [
 
 const commands = {
   prefix: message => {
-    if (message.author.id !== config.ownerID) return;
+    if (!isLeader(message)) return;
 
     // Gets the prefix from the command (eg. "!prefix +" it will take the "+" from it)
     let newPrefix = message.content.split(" ").slice(1, 2)[0];
@@ -35,7 +35,7 @@ const commands = {
   },
 
   start: (message, args) => {
-    if (message.author.id !== config.ownerID) return;
+    if (!isLeader(message)) return;
 
     war.start = moment()
       .startOf("day")
@@ -43,9 +43,9 @@ const commands = {
     towers.forEach(t => (war.requests[t] = {}));
 
     message.channel.send(
-      "New war started " +
+      "New war " +
         moment(war.start).fromNow() +
-        "\nSign up for a keep line by using `!request keep <line number>`. Good luck!"
+        "\nType `!help` for all commands. Good luck!"
     );
 
     fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
@@ -88,20 +88,24 @@ const commands = {
       return;
     }
 
+    clearOldRequests();
+
     if (line in war.requests[tower]) {
       message.channel.send(
         "Line " +
           line +
-          " in the keep is already requested by " +
-          war.requests[tower][line] +
-          "."
+          " in " + tower + " is already requested by " +
+          war.requests[tower][line].nick +
+          ". It was requested " + moment.duration(moment().diff(war.requests[tower][line].timeOfRequest)).humanizePrecisely() + " ago."
       );
     } else {
       var nick = getNick(message);
+      var id = message.author.id;
+      var timeOfRequest = moment();
 
-      war.requests[tower][line] = nick;
+      war.requests[tower][line] = {nick, id, timeOfRequest};
       message.channel.send(
-        "You are now signed up for line " + line + " in " + tower + "."
+        "You are now signed up for line " + line + " in " + tower + ". Attack it within 1h, after that someone else can take it."
       );
     }
 
@@ -124,7 +128,7 @@ const commands = {
     }
 
     // Note: Checking nickname can be bypassed if people change the nickname.
-    if (war.requests[tower][line] === getNick(message)) {
+    if (war.requests[tower][line].nick === getNick(message) || isLeader(message)) {
       delete war.requests[tower][line];
       message.channel.send(
         "Line " + line + " in " + tower + " is now up for grabs!"
@@ -139,10 +143,12 @@ const commands = {
   list: (message, args) => {
     var tower = args[0];
 
+    clearOldRequests();
+
     if (towers.includes(tower)) {
       var response = "These are the lines requested for " + tower + ":\n";
       for (var line in war.requests[tower]) {
-        response += "Line " + line + ": " + war.requests[tower][line] + "\n";
+        response += "Line " + line + ": " + war.requests[tower][line].nick + "\n";
       }
       message.channel.send(response);
     } else {
@@ -151,7 +157,7 @@ const commands = {
         if (!_.isEmpty(war.requests[t])) {
           response += "**" + t + ":**\n";
           for (var line in war.requests[t]) {
-            response += "Line " + line + ": " + war.requests[t][line] + "\n";
+            response += "Line " + line + ": " + war.requests[t][line].nick + "\n";
           }
         }
       });
@@ -193,9 +199,31 @@ client.on("message", message => {
   }
 });
 
+function clearOldRequests() {
+  var now = moment();
+  _.each(war.requests, function(lines, tower) {
+    _.each(lines, function(req, line) {
+      // If the request is older than 1h, remove it.
+      console.log(now);
+      console.log(req['timeOfRequest']);
+      console.log(moment.duration(now.diff(req['timeOfRequest'])).asHours());
+      if (moment.duration(now.diff(req['timeOfRequest'])).asHours() > 1) {
+        console.log("Clearing line: " + line + " in tower " + tower);
+        delete war.requests[tower][line];
+      }
+    })
+  })
+  fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
+}
+
 function getNick(message) {
   var nick = message.guild.members.get(message.author.id).nickname;
   return nick == null ? message.author.username : nick;
+}
+
+function isLeader(message) {
+  return message.member.roles.some(r => ["435844284025929738", "435837050269335552", "435836769171275786"].includes(r.id))
+  || message.author.id == config.ownerID;
 }
 
 function durationSinceStart() {
