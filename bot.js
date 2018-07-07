@@ -180,10 +180,12 @@ const commands = {
       var complete = true;
 
       war.requests[tower][line] = {nick, id, timeOfRequest, complete};
-      message.channel.send(
-        "Line " + line + " in " + tower + " is dead, nice!"
-      );
     }
+    message.channel.send(
+      "Line " + line + " in " + tower + " is dead, nice!"
+    );
+
+    fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
   },
 
   list: (message, args) => {
