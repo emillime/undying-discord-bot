@@ -91,19 +91,28 @@ const commands = {
     clearOldRequests();
 
     if (line in war.requests[tower]) {
-      message.channel.send(
-        "Line " +
-          line +
-          " in " + tower + " is already requested by " +
-          war.requests[tower][line].nick +
-          ". It was requested " + moment.duration(moment().diff(war.requests[tower][line].timeOfRequest)).humanizePrecisely() + " ago."
-      );
+      if (war.requests[tower][line].complete) {
+        message.channel.send(
+          "Line " +
+            line +
+            " in " + tower + " is already finished. "
+        );
+      } else {
+        message.channel.send(
+          "Line " +
+            line +
+            " in " + tower + " is already requested by " +
+            war.requests[tower][line].nick +
+            ". It was requested " + moment.duration(moment().diff(war.requests[tower][line].timeOfRequest)).humanizePrecisely() + " ago."
+        );
+      }
     } else {
       var nick = getNick(message);
       var id = message.author.id;
       var timeOfRequest = moment();
+      var complete = false;
 
-      war.requests[tower][line] = {nick, id, timeOfRequest};
+      war.requests[tower][line] = {nick, id, timeOfRequest, complete};
       message.channel.send(
         "You are now signed up for line " + line + " in " + tower + ". Attack it within 1h, after that someone else can take it."
       );
@@ -127,17 +136,54 @@ const commands = {
       return;
     }
 
-    // Note: Checking nickname can be bypassed if people change the nickname.
-    if (war.requests[tower][line].nick === getNick(message) || isLeader(message)) {
-      delete war.requests[tower][line];
-      message.channel.send(
-        "Line " + line + " in " + tower + " is now up for grabs!"
-      );
+    if (line in war.requests[tower]) {
+      // Note: Checking nickname can be bypassed if people change the nickname.
+      if (war.requests[tower][line].nick === getNick(message) || isLeader(message)) {
+        delete war.requests[tower][line];
+        message.channel.send(
+          "Line " + line + " in " + tower + " is now up for grabs!"
+        );
+      } else {
+        message.channel.send("You can only remove your name from the list.");
+      }
     } else {
-      message.channel.send("You can only remove your name from the list.");
+      message.channel.send(
+        "Line " + line + " in " + tower + " is already cleared!"
+      );
     }
 
     fs.writeFile("./war.json", JSON.stringify(war), err => console.error);
+  },
+
+  complete: (message, args) => {
+    var line = Number(args[0]);
+    var tower = args[1];
+
+    if (
+      line < 1 ||
+      line > 15 ||
+      Number.isNaN(line) ||
+      !towers.includes(tower)
+    ) {
+      message.channel.send(
+        "`!complete <line number> <tower>` Please enter a number between 1 and 15 and a tower from the list. (tt1, tt2, tt3, bt1, bt2, bt3, mt1, tm, mm, bm, keep)"
+      );
+      return;
+    }
+
+    if (line in war.requests[tower]) {
+      war.requests[tower][line].complete = true;
+    } else {
+      var nick = "-";
+      var id = "";
+      var timeOfRequest = moment();
+      var complete = true;
+
+      war.requests[tower][line] = {nick, id, timeOfRequest, complete};
+      message.channel.send(
+        "Line " + line + " in " + tower + " is dead, nice!"
+      );
+    }
   },
 
   list: (message, args) => {
@@ -148,7 +194,9 @@ const commands = {
     if (towers.includes(tower)) {
       var response = "These are the lines requested for " + tower + ":\n";
       for (var line in war.requests[tower]) {
+        if (war.requests[tower][line].complete) response += "~~";
         response += "Line " + line + ": " + war.requests[tower][line].nick + "\n";
+        if (war.requests[tower][line].complete) response += "~~";
       }
       message.channel.send(response);
     } else {
@@ -157,12 +205,34 @@ const commands = {
         if (!_.isEmpty(war.requests[t])) {
           response += "**" + t + ":**\n";
           for (var line in war.requests[t]) {
+            if (war.requests[t][line].complete) response += "~~";
             response += "Line " + line + ": " + war.requests[t][line].nick + "\n";
+            if (war.requests[t][line].complete) response += "~~";
           }
         }
       });
       message.channel.send(response);
     }
+  },
+
+  ping: (message, args) => {
+    var tower = args[0];
+
+    clearOldRequests();
+
+    if (towers.includes(tower)) {
+      var response = "";
+      for (var line in war.requests[tower]) {
+        if (!war.requests[tower][line].complete) {
+          response += "<@" + war.requests[tower][line].id + "> ";
+        }
+      }
+      response += " Remember to take your requested line in " + tower + "!" 
+      message.channel.send(response);
+    } else {
+      message.channel.send("I did not understand the tower name. Pick one from this list: (tt1, tt2, tt3, bt1, bt2, bt3, mt1, tm, mm, bm, keep)");
+    }
+
   },
 
   help: (message, args) => {
@@ -173,8 +243,10 @@ const commands = {
         `!current` The current points if you haven't donated or attacked yet.\n\
         `!points <number>` Tells you how long it will take to generate `<number>` points.\n\
         `!request <number> <tower>` Signs you up for the line in that tower.\n\
+        `!complete <number> <tower>` Marks that line as completed.\n\
         `!clear <number> <tower>` Removes you from that line in the list.\n\
         `!list <tower>` Shows the list for a specific tower, if you don't add a tower all towers will be shown.\n\
+        `!ping <tower>` Pings the people currently signed up for that tower.\n\
         These are the tower names: (tt1, tt2, tt3, bt1, bt2, bt3, mt1, tm, mm, bm, keep)\n\
         "
     );
@@ -204,11 +276,7 @@ function clearOldRequests() {
   _.each(war.requests, function(lines, tower) {
     _.each(lines, function(req, line) {
       // If the request is older than 1h, remove it.
-      console.log(now);
-      console.log(req['timeOfRequest']);
-      console.log(moment.duration(now.diff(req['timeOfRequest'])).asHours());
-      if (moment.duration(now.diff(req['timeOfRequest'])).asHours() > 1) {
-        console.log("Clearing line: " + line + " in tower " + tower);
+      if (!req.complete && moment.duration(now.diff(req.timeOfRequest)).asHours() > 1) {
         delete war.requests[tower][line];
       }
     })
