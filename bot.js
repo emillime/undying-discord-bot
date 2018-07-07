@@ -196,9 +196,11 @@ const commands = {
     if (towers.includes(tower)) {
       var response = "These are the lines requested for " + tower + ":\n";
       for (var line in war.requests[tower]) {
-        if (war.requests[tower][line].complete) response += "~~";
-        response += "Line " + line + ": " + war.requests[tower][line].nick + "\n";
-        if (war.requests[tower][line].complete) response += "~~";
+        if (war.requests[tower][line].complete) {
+          response += "~~Line " + line + ": " + war.requests[tower][line].nick + "~~" + "\n";
+        } else {
+          response += "Line " + line + ": " + war.requests[tower][line].nick + "\n";
+        }
       }
       message.channel.send(response);
     } else {
@@ -207,9 +209,11 @@ const commands = {
         if (!_.isEmpty(war.requests[t])) {
           response += "**" + t + ":**\n";
           for (var line in war.requests[t]) {
-            if (war.requests[t][line].complete) response += "~~";
-            response += "Line " + line + ": " + war.requests[t][line].nick + "\n";
-            if (war.requests[t][line].complete) response += "~~";
+            if (war.requests[tower][line].complete) {
+              response += "~~Line " + line + ": " + war.requests[tower][line].nick + "~~" + "\n";
+            } else {
+              response += "Line " + line + ": " + war.requests[tower][line].nick + "\n";
+            }
           }
         }
       });
